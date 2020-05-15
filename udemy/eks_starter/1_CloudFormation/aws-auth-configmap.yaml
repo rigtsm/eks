@@ -1,0 +1,32 @@
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+data:
+  mapRoles: |
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::889297840162:role/daniele-nodegrouprole
+      username: system:node:{{EC2PrivateDNSName}}
+  mapUsers: |
+    - userarn: arn:aws:iam::889297840162:user/f.bernardi
+      username: f.bernardi
+      groups:
+        - system:masters
+    - userarn: arn:aws:iam::889297840162:user/rigers-test-eks
+      username: rigers-test-eks
+      groups:
+        - system:masters
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"mapRoles":"- groups:\n  - system:bootstrappers\n  - system:nodes\n  rolearn: arn:aws:iam::889297840162:role/daniele-nodegrouprole\n  username: system:node:{{EC2PrivateDNSName}}\n","mapUsers":"- userarn: arn:aws:iam::889297840162:user/f.bernardi\n  username: f.bernardi\n  groups:\n    - system:masters\n- userarn: arn:aws:iam::889297840162:user/rigers-test-eks\n  username: rigers-test-eks\n  groups:\n    - system:masters\n"},"kind":"ConfigMap","metadata":{"annotations":{},"creationTimestamp":"2020-05-14T10:31:41Z","name":"aws-auth","namespace":"kube-system","resourceVersion":"5981","selfLink":"/api/v1/namespaces/kube-system/configmaps/aws-auth","uid":"19675317-95ce-11ea-86ee-0aeca4e4751d"}}
+  creationTimestamp: "2020-05-14T10:31:41Z"
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "27137"
+  selfLink: /api/v1/namespaces/kube-system/configmaps/aws-auth
+  uid: 19675317-95ce-11ea-86ee-0aeca4e4751d
