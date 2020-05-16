@@ -90,10 +90,141 @@ For a template of the **aws-auth ConfigMap** to add to the cluster configuration
 
 
 
+## Deploying the worker nodes
+
+We will be creating 
+- autoscaling group (ASG) 
+- with EC2 instances
+- which are split across three subnets
+- on three different AZ
+
+![eks](./img/eks6.png)
+
+To achieve this goal we are going to do the following steps:
+- CloudFormation stack template to create worker, security-group, ...
+- Worker nodes are EC2 instances in an auto-scaling-group
+- EC2 instances based upon a particular AMI by AWS specific for k8s that contains already kubelet, docker, authenticator
+- allowing nodes, based on the assumed role, to join EKS cluster. we will be creating configMaps for k8s control plane to allow the Rol to join our EKS cluster. This role will be assumed by the EC2 instances to be able to join the cluster. 
+
+
+**Deploying the CloudFormation Node group stack**
+
+![nodegroup](./img/ng1.png)
 
 
 
+# 4. EKS in deep 
+
+## Kubernetes Contol Plane
+
+![Control Plane](./img/eks7.png)
+
+In EKS
+- the **Master and Etcd** are managed by **AWS**
+- the **worker nodes** are managed by the **USER**
+
+![EKS](img/eks_intro.png)
 
 
+**EKS Control Plane Deep Dive**
+- Eks k8s Control plane is highly available
+- single tenant ( you do not share it with other customers because deployed in our VPC)
+- made of native AWS components (EC2, ELB, ASG, NLB, VPC)
+- the whole control plane is fronted by an **NBL** (provides fixed IP to the control plane)
+
+![Control Plane](./img/eks8.png)
+*ASG (Auto Scaling Group), 
+*NLB (Network Load Balancer)
 
 
+## EKS Networking
+
+### **VPC**
+
+- Recommended to have:
+    - **Private subnets**: contains all the worker nodes to have the application deployed. Must be large CIDR (1.1.1.1/16).
+    - **Public subnets**: will contain aby **internet-facing** load balancer to expose the applications.
+- Private only means you can't expose your apps
+- Public only means your worker nodes are exposed to the internet
+- The VPC must have **DNS hostname** and **DNS resolution support**, otherwise nodes can't register with the Control Plane.
+
+![Control Plane](./img/eks9.png)
+
+
+### **Security Groups**
+
+- You control 2 security groups:
+    - **Control Plane** 
+    - **Worker Nodes**
+- information on AWS best practices
+
+![Control Plane](./img/eks10.png)
+![Control Plane](./img/eks11.png)
+
+**Mater node security Group rules**
+
+![Mater node security group rules](./img/eks12.png)
+
+**Worker node security Group rules**
+
+![Worker node security Group rules](./img/eks13.png)
+
+### **EKS Pod Networking**
+- Amazon VPC CNI plugin: **each pod receives 1 IP address** (=ENI) in VPC
+    - ENI = An elastic network interface is a logical networking component in a VPC that represents a virtual network card.
+- Each pod receives an **Ip address in the VPC**, this means that Pods have the exact same IP address inside EKS cluster and outside it. That means that the applications outside the EKS cluster can interact with the Pods using this Ip addresses.
+- Subnet Limitations:
+    - CIDR/ is  254 IP, not enough to run a lot of pods
+    - CIDR/18 is a lot more IP (16.384), better for running more pods.
+- EC2 limitations:
+    - EC2 instances can only have a limited amount of ENI/IP address, this means a limit number of Pods that can run inside them. **#IP == #Pods**
+    - For each EC2 instance we have the max number of Network Interfaces and the IP addresses per Interface
+        - **c5.large: (max # interfaces ) 3 x (# IPs per interface 10) = (number of overall IPs/Pods) 30**
+        - **t2.micro: (max # interfaces ) 2 x (# IPs per interface 2) = (number of overall IPs/Pods) 4**
+
+![EC2 Limitations](./img/eks14.png)
+
+## [**Calico**](https://www.projectcalico.org/)
+
+Calico handles network polices in place.
+- Security groups allow all worker nodes to communicate to each other on any ports
+- This may be a problem if you want to segment applications, tenants, or environments
+- Instead of dealing with AWS Security Groups, we can install project **Calico** onto **EKS**
+- With Calico teh network policies are directly assigned to pods (instead of worker nodes)
+- It effectively reproduce what security groups do but this time at Pod level.
+    - This Pods belong to this Calico rule
+
+### **Kubernetes IAM (Identity Access Management) & RBAC (Role Based Access Control) Integration**
+- Authentication is held by IAM
+- Authorization is done by K8s RBAC ( native auth for K8s)
+- This is done through a collaboration done between AWS and Heptio
+- You can assign RBAC rules directly to IAM entities.
+- By default, the role you assign to your K8s cluster has **system:master permissions**
+
+![EC2 Limitations](./img/eks15.png)
+
+### **K8s worker nodes**
+
+- When you create a **worker node/group**, assign an IAM role, and authorize that role in RBAC to join **system:bootstrappers** and **system:nodes** in the [ConfigMap](https://docs.aws.amazon.com/eks/latest/userguide/add-user-role.html)
+- this file will allow our group nodes to joining our k8s cluster.
+
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+        name: aws-auth
+        namespace: kube-system
+        data:
+        mapRoles: |
+            - rolearn: arn:aws:iam::xxxxx:role/eks-course-worker-nodes-NodeInstanceRole-13MTCXACD5LA3
+            username: system:node:{{EC2PrivateDNSName}}
+            groups:
+                - system:bootstrappers
+                - system:nodes
+
+## EKS Load Balancers
+
+- EKS support 
+    - Classic Load Balancer, 
+    - Applications Load Balancer 
+    - Network LoadBalancer
+- Classic & Network Load Balancer is for Service of type **LoadBalancer**
