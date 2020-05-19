@@ -133,6 +133,7 @@ In EKS
 - the whole control plane is fronted by an **NBL** (provides fixed IP to the control plane)
 
 ![Control Plane](./img/eks8.png)
+
 *ASG (Auto Scaling Group), 
 *NLB (Network Load Balancer)
 
@@ -170,9 +171,9 @@ In EKS
 ![Worker node security Group rules](./img/eks13.png)
 
 ### **EKS Pod Networking**
-- Amazon VPC CNI plugin: **each pod receives 1 IP address** (=ENI) in VPC
+- Amazon VPC CNI (Container Network Interface) plugin: **each pod receives 1 IP address** (=ENI) in VPC
     - ENI = An elastic network interface is a logical networking component in a VPC that represents a virtual network card.
-- Each pod receives an **Ip address in the VPC**, this means that Pods have the exact same IP address inside EKS cluster and outside it. That means that the applications outside the EKS cluster can interact with the Pods using this Ip addresses.
+- Each pod receives an **Ip address in the VPC**, this means that Pods have the **exact same IP address inside EKS cluster and outside of it**. That means that the applications outside the EKS cluster can interact with the Pods using this Ip addresses.
 - Subnet Limitations:
     - CIDR/ is  254 IP, not enough to run a lot of pods
     - CIDR/18 is a lot more IP (16.384), better for running more pods.
@@ -194,7 +195,7 @@ Calico handles network polices in place.
 - It effectively reproduce what security groups do but this time at Pod level.
     - This Pods belong to this Calico rule
 
-### **Kubernetes IAM (Identity Access Management) & RBAC (Role Based Access Control) Integration**
+## **Kubernetes IAM (Identity Access Management) & RBAC (Role Based Access Control) Integration**
 - Authentication is held by IAM
 - Authorization is done by K8s RBAC ( native auth for K8s)
 - This is done through a collaboration done between AWS and Heptio
@@ -221,10 +222,98 @@ Calico handles network polices in place.
                 - system:bootstrappers
                 - system:nodes
 
-## EKS Load Balancers
+## [EKS Load Balancers](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/load-balancer-types.html)
 
 - EKS support 
     - Classic Load Balancer, 
     - Applications Load Balancer 
     - Network LoadBalancer
 - Classic & Network Load Balancer is for Service of type **LoadBalancer**
+- **Application Load Balancer** is for **Ingress Controller**
+
+- **ALB**:
+    - An Application Load Balancer makes routing decisions at the application **layer (HTTP/HTTPS)**, supports path-based routing, and can route requests to one or more ports on each container instance in your cluster. 
+- **NLB**:
+    - A Network Load Balancer makes routing decisions at the transport layer (TCP/SSL). It can handle millions of requests per second. After the load balancer receives a connection, it selects a target from the target group for the default rule using a flow hash routing algorithm.
+
+- **CLN**:
+    - A Classic Load Balancer makes routing decisions at either the transport layer (TCP/SSL) or the application layer (HTTP/HTTPS). Classic Load Balancers currently require a fixed relationship between the load balancer port and the container instance port.
+
+
+
+# Kubernetes Dashboard
+
+![Dashboard](./img/eks20.png)
+
+
+## 1. **Create a service account and RBAC rules**
+
+- a service account for the dashboard
+- several roles for grand privileges (RBAC) to the dashboard
+
+    kubectl apply -f dashboard-account-rbac.yaml
+
+## 2 Deploy dashboard
+
+- Service: fixed port, fixed URL, user facing (port 443 given as fixed URL)
+- Deployment: Dashboard Pod - port 8443
+- Volume: will contain our secret certificates
+
+![Dashboard](./img/eks21.png)
+
+
+- Deploy metrics Add-Ons
+
+![Dashboard](./img/eks23.png)
+
+Creating resources for accessing the Dashboard
+- cluster admin account 
+- Role binding
+- start kubectl proxy
+- authenticate to the k8s dashbaord
+
+
+# 6 Deploy a stateless app
+
+In this section we will:
+- [GuestBook app](https://github.com/kubernetes/examples/tree/master/guestbook)
+- Deploy backend resources
+- Deploy frontend resources
+- Scaling Pods up/down
+- Perform some chaos testing
+- App accessible form an AWS LB
+
+Infrastructure:
+
+![Deploy stateless app](./img/eks30.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
